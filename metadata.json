@@ -1,0 +1,6 @@
+{
+  "name": "FoodWise AI",
+  "description": "Smart food waste reduction and demand prediction prototype for restaurants, cafeterias, hostels, supermarkets, and hotels.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

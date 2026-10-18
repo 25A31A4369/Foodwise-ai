@@ -8,12 +8,14 @@ export interface AppTranslations {
     mission: string;
   };
   nav: {
+    operations: string;
     today: string;
     forecast: string;
     production: string;
     inventory: string;
     wasteRisk: string;
     rescuePlan: string;
+    rescueSpecials: string;
     feedback: string;
     experiments: string;
     menu: string;
@@ -28,6 +30,22 @@ export interface AppTranslations {
     somethingChangedBtn: string;
     demoTourBtn: string;
     resetDemoBtn: string;
+  };
+  verificationGate: {
+    title: string;
+    description: string;
+    btnAccept: string;
+    btnModify: string;
+    statusAwaiting: string;
+    statusAccepted: string;
+    statusModified: string;
+  };
+  chatbot: {
+    title: string;
+    subtitle: string;
+    placeholder: string;
+    quickPromptsLabel: string;
+    sendBtn: string;
   };
   cards: {
     expectedCustomers: string;
@@ -157,17 +175,19 @@ export const translations: Record<Language, AppTranslations> = {
       mission: 'Turn yesterday’s leftovers into tomorrow’s smarter decisions.',
     },
     nav: {
+      operations: 'Operations',
       today: 'Today',
       forecast: 'Forecast',
       production: 'Production',
-      inventory: 'Inventory',
+      inventory: 'Inventory & FEFO',
       wasteRisk: 'Waste Risk',
-      rescuePlan: 'Rescue Plan',
+      rescuePlan: 'Rescue & Specials',
+      rescueSpecials: 'Rescue & Specials',
       feedback: 'Leftover Feedback',
       experiments: 'Experiments',
       menu: 'Smart Menu',
       replay: 'Decision Replay',
-      reports: 'Reports',
+      reports: 'Reports & Analytics',
       settings: 'Settings',
     },
     header: {
@@ -177,6 +197,22 @@ export const translations: Record<Language, AppTranslations> = {
       somethingChangedBtn: '＋ SOMETHING CHANGED?',
       demoTourBtn: '🎯 3-Min Demo Story',
       resetDemoBtn: 'Reset Demo',
+    },
+    verificationGate: {
+      title: 'PREDICTIVE WEATHER & DEMAND GATE',
+      description: 'AI has auto-detected evening rain in Bengaluru and projected 185 customers with calibrated batch targets. Accept AI baseline or customize inputs.',
+      btnAccept: 'Accept AI Predictions',
+      btnModify: 'Modify Inputs & Sizing',
+      statusAwaiting: 'Awaiting Chef Verification',
+      statusAccepted: 'Verified by Chef (AI Baseline Active)',
+      statusModified: 'Customized by Chef (Manual Override Active)',
+    },
+    chatbot: {
+      title: "Chef's Copilot",
+      subtitle: 'AI Kitchen Assistant & Culinary Substitution Engine',
+      placeholder: 'Ask about recipe sizing, leftover rescue, substitutions...',
+      quickPromptsLabel: 'Quick Operational Inquiries:',
+      sendBtn: 'Send',
     },
     cards: {
       expectedCustomers: 'CUSTOMERS EXPECTED',
@@ -304,17 +340,19 @@ export const translations: Record<Language, AppTranslations> = {
       mission: 'कल के बचे खाने को कल के समझदार फैसलों में बदलें।',
     },
     nav: {
+      operations: 'ऑपरेशन्स',
       today: 'आज का दिन',
       forecast: 'मांग पूर्वानुमान',
       production: 'तैयारी (उत्पादन)',
-      inventory: 'राशन स्टॉक',
+      inventory: 'इन्वेंटरी और FEFO',
       wasteRisk: 'बर्बादी जोखिम',
-      rescuePlan: 'बचाव योजना',
+      rescuePlan: 'रेस्क्यू और स्पेशल',
+      rescueSpecials: 'रेस्क्यू और स्पेशल',
       feedback: 'बचा हुआ खाना (फीडबैक)',
       experiments: 'प्रयोगशाला',
       menu: 'स्मार्ट मेनू',
       replay: 'निर्णय समीक्षा',
-      reports: 'रिपोर्ट',
+      reports: 'रिपोर्ट और एनालिटिक्स',
       settings: 'सेटिंग्स',
     },
     header: {
@@ -324,6 +362,22 @@ export const translations: Record<Language, AppTranslations> = {
       somethingChangedBtn: '＋ कुछ बदलाव हुआ?',
       demoTourBtn: '🎯 3-मिनट डेमो गाइड',
       resetDemoBtn: 'रीसेट डेमो',
+    },
+    verificationGate: {
+      title: 'मौसम और मांग पूर्वानुमान सत्यापन',
+      description: 'एआई ने शाम की बारिश और 185 ग्राहकों का पूर्वानुमान लगाया है। एआई सुझाव स्वीकार करें या अपने अनुसार बदलें।',
+      btnAccept: 'एआई पूर्वानुमान स्वीकार करें',
+      btnModify: 'इनपुट और बैच बदलें',
+      statusAwaiting: 'शेफ सत्यापन लंबित',
+      statusAccepted: 'शेफ द्वारा सत्यापित (एआई बेसलाइन सक्रिय)',
+      statusModified: 'कस्टम बदलाव सक्रिय (मैन्युअल ओवरराइड)',
+    },
+    chatbot: {
+      title: 'शेफ को-पायलट',
+      subtitle: 'एआई किचन सहायक और रेसिपी सुझाव',
+      placeholder: 'रेसिपी, बचे हुए खाने के बचाव या विकल्पों के बारे में पूछें...',
+      quickPromptsLabel: 'त्वरित प्रश्न:',
+      sendBtn: 'पूछें',
     },
     cards: {
       expectedCustomers: 'संभावित ग्राहक',
@@ -451,17 +505,19 @@ export const translations: Record<Language, AppTranslations> = {
       mission: 'నిన్న మిగిలిన ఆహారాన్ని రేపటి తెలివైన నిర్ణయాలుగా మార్చండి.',
     },
     nav: {
+      operations: 'ఆపరేషన్స్',
       today: 'ఈరోజు',
       forecast: 'డిమాండ్ అంచనా',
       production: 'వంట తయారీ',
-      inventory: 'సరుకుల నిల్వ',
+      inventory: 'ఇన్వెంటరీ & FEFO',
       wasteRisk: 'వృథా ప్రమాదం',
-      rescuePlan: 'ఆహార రక్షణ',
+      rescuePlan: 'రెస్క్యూ & స్పెషల్స్',
+      rescueSpecials: 'రెస్క్యూ & స్పెషల్స్',
       feedback: 'మిగిలిన ఆహారం ఫీడ్‌బ్యాక్',
       experiments: 'ప్రయోగాలు',
       menu: 'స్మార్ట్ మెనూ',
       replay: 'నిర్ణయాల సమీక్ష',
-      reports: 'నివేదికలు',
+      reports: 'నివేదికలు & విశ్లేషణ',
       settings: 'సెట్టింగ్‌లు',
     },
     header: {
@@ -471,6 +527,22 @@ export const translations: Record<Language, AppTranslations> = {
       somethingChangedBtn: '＋ ఏదైనా మారిందా?',
       demoTourBtn: '🎯 3-నిమిషాల డెమో కథ',
       resetDemoBtn: 'డెమో రీసెట్',
+    },
+    verificationGate: {
+      title: 'వాతావరణం & డిమాండ్ అంచనా ధృవీకరణ',
+      description: 'సాయంత్రం వర్షం మరియు 185 మంది కస్టమర్ల రాకను ఏఐ ముందస్తుగా అంచనా వేసింది. ఏఐ అంచనాలను ఆమోదించండి లేదా మీ వంటశాల వివరాలను మార్చండి.',
+      btnAccept: 'ఏఐ అంచనాలను ఆమోదించండి',
+      btnModify: 'వివరాలు & పరిమాణాలు మార్చండి',
+      statusAwaiting: 'షెఫ్ ధృవీకరణ కోసం వేచి ఉంది',
+      statusAccepted: 'షెఫ్ ధృవీకరించారు (ఏఐ బేస్‌లైన్ సక్రియం)',
+      statusModified: 'కస్టమ్ మార్పులు సక్రియం (మాన్యువల్ ఓవర్‌రైడ్)',
+    },
+    chatbot: {
+      title: 'షెఫ్ కో-పైలట్',
+      subtitle: 'ఏఐ కిచెన్ అసిస్టెంట్ & ప్రత్యామ్నాయ వంటకాలు',
+      placeholder: 'వంట పరిమాణాలు, మిగిలిన పదార్థాల రక్షణ, ప్రత్యామ్నాయాల గురించి అడగండి...',
+      quickPromptsLabel: 'త్వరిత ప్రశ్నలు:',
+      sendBtn: 'పంపు',
     },
     cards: {
       expectedCustomers: 'ఆశించే కస్టమర్లు',

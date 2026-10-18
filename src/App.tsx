@@ -3,13 +3,10 @@ import {
   AppKPIs,
   DamagedStockRecord,
   DecisionReplayRecord,
-  ExperimentItem,
   ForecastDay,
   InventoryItem,
   Language,
-  LeftoverFeedbackRecord,
   NavigationTab,
-  OrganizationType,
   ProductionPlanItem,
   RescuePlanItem,
   SmartMenuItem,
@@ -21,39 +18,27 @@ import { getDefaultDemoData } from './demoData';
 import { translations } from './translations';
 import { LoginFlow } from './components/LoginFlow';
 import { SidebarNav } from './components/SidebarNav';
-import { TodaySection } from './components/TodaySection';
-import { ForecastSection } from './components/ForecastSection';
-import { ProductionSection } from './components/ProductionSection';
+import { OperationsSection, VerificationGateStatus } from './components/OperationsSection';
 import { InventorySection } from './components/InventorySection';
-import { WasteRiskSection } from './components/WasteRiskSection';
 import { RescuePlanSection } from './components/RescuePlanSection';
-import { ExperimentsSection } from './components/ExperimentsSection';
-import { SmartMenuSection } from './components/SmartMenuSection';
-import { DecisionReplaySection } from './components/DecisionReplaySection';
-import { LeftoverFeedbackSection } from './components/LeftoverFeedbackSection';
 import { ReportsView } from './components/ReportsView';
-import { SettingsSection } from './components/SettingsSection';
-import { AddUpdateModal } from './components/AddUpdateModal';
+import { AiChatbot } from './components/AiChatbot';
 import { SomethingChangedModal } from './components/SomethingChangedModal';
 import { DamagedStockModal } from './components/DamagedStockModal';
-import { DemoTourModal } from './components/DemoTourModal';
 import {
-  Plus,
-  AlertTriangle,
-  RotateCcw,
-  Sparkles,
-  Menu,
-  X,
-  Globe,
   CheckCircle2,
   Building2,
-  Calendar,
-  Layers,
   MapPin,
-  UtensilsCrossed,
+  User,
+  Menu,
+  X,
+  RotateCcw,
+  Bot,
+  ChefHat,
+  Sparkles,
 } from 'lucide-react';
 
-const STORAGE_KEY = 'foodwise_ai_app_v2';
+const STORAGE_KEY = 'foodwise_ai_app_v4';
 
 export default function App() {
   // Session
@@ -78,8 +63,8 @@ export default function App() {
     };
   });
 
-  // Active Tab
-  const [activeTab, setActiveTab] = useState<NavigationTab>('today');
+  // Active Tab (4 Consolidated Core Tabs: operations | inventory | rescue | reports)
+  const [activeTab, setActiveTab] = useState<NavigationTab>('operations');
 
   // Business Dataset
   const seed = getDefaultDemoData(session.orgType);
@@ -90,29 +75,31 @@ export default function App() {
   const [inventory, setInventory] = useState<InventoryItem[]>(seed.inventory);
   const [rescuePlans, setRescuePlans] = useState<RescuePlanItem[]>(seed.rescuePlans);
   const [smartMenus, setSmartMenus] = useState<SmartMenuItem[]>(seed.smartMenus);
-  const [experiments, setExperiments] = useState<ExperimentItem[]>(seed.experiments);
   const [decisionReplays, setDecisionReplays] = useState<DecisionReplayRecord[]>(seed.decisionReplays);
-  const [leftoverHistory, setLeftoverHistory] = useState<LeftoverFeedbackRecord[]>(seed.leftoverHistory);
   const [damagedStock, setDamagedStock] = useState<DamagedStockRecord[]>(seed.damagedStock);
   const [weatherInfo, setWeatherInfo] = useState(seed.weatherInfo);
 
-  // User Today's Input State (Input given by user first then AI makes decisions)
+  // Verification Gate Status (2-step AI pipeline)
+  const [verificationStatus, setVerificationStatus] = useState<VerificationGateStatus>('awaiting');
+
+  // AI Chatbot Overlay State
+  const [isChatbotOpen, setIsChatbotOpen] = useState(false);
+
+  // User Today's Input State
   const [hasGivenTodayInput, setHasGivenTodayInput] = useState(false);
   const [todayUserInput, setTodayUserInput] = useState<TodayUserInput>({
-    expectedCustomers: 180,
+    expectedCustomers: 185,
     riceStockKg: 25,
     riceLeftoverKg: 3,
     tomatoesStockKg: 12,
     paneerStockKg: 8,
-    localCondition: 'Rain expected this evening 🌧️',
+    localCondition: 'Rain expected this evening in Bengaluru',
     isRainExpected: true,
   });
 
   // Modals
-  const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isChangedModalOpen, setIsChangedModalOpen] = useState(false);
   const [isDamagedModalOpen, setIsDamagedModalOpen] = useState(false);
-  const [isDemoTourOpen, setIsDemoTourOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Notification Toast
@@ -133,20 +120,31 @@ export default function App() {
     setSession((prev) => ({ ...prev, ...partial }));
   };
 
-  // Process User Input First -> then AI Generates Decisions
+  // Accept AI Auto-Predictions (1-click Human Verification Gate)
+  const handleVerifyAiPredictions = () => {
+    setVerificationStatus('accepted');
+    setHasGivenTodayInput(true);
+    // Lock in verified baseline plans
+    setProductionPlans((prev) => prev.map((p) => ({ ...p, status: 'accepted' })));
+    setTodayActions((prev) => prev.map((a) => ({ ...a, status: 'accepted' })));
+    showToast('AI Predictions & production targets verified and confirmed by Chef!');
+  };
+
+  // Process User Input First -> then AI Generates Decisions (Manual Override)
   const handleSubmitTodayInput = (input: TodayUserInput) => {
     setTodayUserInput(input);
     setHasGivenTodayInput(true);
+    setVerificationStatus('modified');
 
     const newExpected = Math.max(40, input.expectedCustomers);
     const ratio = newExpected / 180;
-    const recommendedRiceKg = Math.max(5, Math.round(newExpected * 0.135 - (input.riceLeftoverKg * 0.6)));
+    const recommendedRiceKg = Math.max(5, Math.round(newExpected * 0.135 - input.riceLeftoverKg * 0.6));
     const riceAvoided = Math.round((input.riceLeftoverKg * 0.5 + 0.8) * 10) / 10;
 
     setKpis((prev) => ({
       ...prev,
       customersExpected: newExpected,
-      potentialWasteAvoidedKg: Math.round((4.2 * ratio) * 10) / 10,
+      potentialWasteAvoidedKg: Math.round(4.2 * ratio * 10) / 10,
       potentialCostSaving: Math.round(1240 * ratio),
     }));
 
@@ -157,7 +155,7 @@ export default function App() {
         item: 'RICE',
         emoji: '🍚',
         actionHeading: `PREPARE ${recommendedRiceKg - 1}–${recommendedRiceKg} KG RICE`,
-        subheading: `Calibrated from your input: ${newExpected} customers & ${input.riceLeftoverKg} kg yesterday’s surplus`,
+        subheading: `Calibrated from your custom input: ${newExpected} customers & ${input.riceLeftoverKg} kg yesterday’s surplus`,
         reasons: [
           `Your input: ${newExpected} customers expected today`,
           `Your input: ${input.riceLeftoverKg} kg rice leftover from yesterday`,
@@ -199,23 +197,19 @@ export default function App() {
         actionHeading: 'USE PANEER TODAY',
         subheading: `${input.paneerStockKg} kg near 72-hour dairy limit — activate today’s special`,
         reasons: [
-          `Your input: ${input.paneerStockKg} kg batch PN-201 expires tomorrow at 11:00 AM`,
-          'High cost ingredient (₹320/kg)',
-          'Zero risk of waste if incorporated into lunch curry or roll special',
+          `Your input: ${input.paneerStockKg} kg dairy stock on hand`,
+          'Batch #PN-301 shelf life expires in 28 hours',
+          'High cost ingredient (₹320/kg) with highest monetary risk',
+          'Chef special recipe repurposing eliminates 100% of dump loss',
         ],
         potentialWasteAvoidedKg: 6.0,
         costSaved: 1920,
-        confidencePct: 91,
-        risksIfIgnored: '8 kg spoiled paneer represents ₹2,560 dead loss tomorrow.',
-        alternatives: 'Freeze paneer cubes or move 4 kg to adjacent dining hall.',
+        confidencePct: 95,
+        risksIfIgnored: 'Full 6.0 kg batch spoiled by tomorrow morning.',
+        alternatives: 'Portion and freeze at -18°C before 2:00 PM cutoff.',
         status: 'pending',
       },
     ]);
-
-    // Update forecast days
-    setForecastDays((prev) =>
-      prev.map((d) => (d.isToday ? { ...d, expectedCustomers: newExpected } : d))
-    );
 
     // Update production plans
     setProductionPlans((prev) =>
@@ -223,138 +217,73 @@ export default function App() {
         if (p.item.toLowerCase().includes('rice')) {
           return {
             ...p,
-            demandKg: Math.round(newExpected * 0.135),
-            usableStockKg: input.riceLeftoverKg,
             recommendedProductionKg: recommendedRiceKg,
-            explanation: `Calibrated for your input: ${newExpected} customers minus ${input.riceLeftoverKg} kg yesterday's leftovers.`,
+            demandKg: Math.round(newExpected * 0.135 * 10) / 10,
+            usableStockKg: input.riceLeftoverKg,
+            explanation: `Calibrated for ${newExpected} people factoring in ${input.riceLeftoverKg} kg yesterday surplus.`,
           };
         }
+        const adjDemand = Math.round(p.demandKg * ratio * 10) / 10;
         return {
           ...p,
-          demandKg: Math.round(p.demandKg * ratio * 10) / 10,
-          recommendedProductionKg: Math.round(p.recommendedProductionKg * ratio * 10) / 10,
-          explanation: `Calibrated for your input: ${newExpected} people.`,
+          demandKg: adjDemand,
+          recommendedProductionKg: Math.max(1, Math.round(adjDemand - p.usableStockKg)),
+          explanation: `Calibrated for ${newExpected} people based on morning inputs.`,
         };
       })
     );
 
-    setWeatherInfo((prev) => ({
-      ...prev,
-      condition: input.localCondition,
-      isRainExpected: input.isRainExpected,
-    }));
-
-    showToast(`AI Decisions generated from your input (${newExpected} customers, ${input.riceStockKg}kg stock)!`);
+    showToast(`Recalibrated custom kitchen plan for ${newExpected} customers.`);
   };
 
-  // Finish Login and initialize dataset for selected organization
-  const handleFinishLogin = (selectedOrg?: OrganizationType, selectedOrgName?: string) => {
-    const org = selectedOrg || session.orgType || 'cafeteria';
-    const orgName = selectedOrgName || session.orgName || 'Food Service Facility';
-    const fresh = getDefaultDemoData(org);
-    setKpis(fresh.kpis);
-    setTodayActions(fresh.todayActions);
-    setForecastDays(fresh.forecastDays);
-    setProductionPlans(fresh.productionPlans);
-    setInventory(fresh.inventory);
-    setRescuePlans(fresh.rescuePlans);
-    setSmartMenus(fresh.smartMenus);
-    setExperiments(fresh.experiments);
-    setDecisionReplays(fresh.decisionReplays);
-    setLeftoverHistory(fresh.leftoverHistory);
-    setDamagedStock(fresh.damagedStock);
-    setWeatherInfo(fresh.weatherInfo);
-
-    // Reset user input state so input is requested first
-    setHasGivenTodayInput(false);
-    setTodayUserInput({
-      expectedCustomers: fresh.kpis.customersExpected || 180,
-      riceStockKg: 25,
-      riceLeftoverKg: 3,
-      tomatoesStockKg: 12,
-      paneerStockKg: 8,
-      localCondition: fresh.weatherInfo.condition,
-      isRainExpected: fresh.weatherInfo.isRainExpected,
-    });
-
-    setSession((prev) => ({
-      ...prev,
-      orgType: org,
-      orgName: orgName,
-      isLoggedIn: true,
-      step: 'dashboard',
-    }));
-    showToast(`Welcome to ${orgName}! Please enter today's input.`);
+  const handleFinishLogin = () => {
+    updateSession({ isLoggedIn: true, step: 'dashboard' });
+    showToast('Signed in to FoodWise AI Management Suite.');
   };
 
-  // Complete Reset Demo: Clears storage, session, inputs, recommendations, history, and returns to Language Selection (Step 1)
+  // FULL RESET HANDLER (Requirements: clear state, localStorage.clear, sessionStorage.clear, return to Step 1 language selection)
   const handleResetDemo = () => {
     try {
-      localStorage.removeItem(`${STORAGE_KEY}_session`);
       localStorage.clear();
+      sessionStorage.clear();
     } catch {}
 
-    const freshSession: UserSession = {
+    setSession({
       isLoggedIn: false,
       mobile: '',
       language: 'en',
       orgType: 'cafeteria',
-      orgName: '',
-      step: 'language',
+      orgName: 'Green Valley College Cafeteria',
+      step: 'language', // Returns to initial "Step 1: Choose your language" onboarding screen
       setupInfo: {
         usualPeopleCount: 185,
         mealsServed: ['Breakfast', 'Lunch', 'Dinner'],
         location: 'Bengaluru, India',
         localContext: 'Rain expected this evening',
       },
-    };
-    setSession(freshSession);
-
-    const fresh = getDefaultDemoData('cafeteria');
-    setKpis(fresh.kpis);
-    setTodayActions(fresh.todayActions);
-    setForecastDays(fresh.forecastDays);
-    setProductionPlans(fresh.productionPlans);
-    setInventory(fresh.inventory);
-    setRescuePlans(fresh.rescuePlans);
-    setSmartMenus(fresh.smartMenus);
-    setExperiments(fresh.experiments);
-    setDecisionReplays(fresh.decisionReplays);
-    setLeftoverHistory(fresh.leftoverHistory);
-    setDamagedStock(fresh.damagedStock);
-    setWeatherInfo(fresh.weatherInfo);
-
-    // Reset user input state
-    setHasGivenTodayInput(false);
-    setTodayUserInput({
-      expectedCustomers: 180,
-      riceStockKg: 25,
-      riceLeftoverKg: 3,
-      tomatoesStockKg: 12,
-      paneerStockKg: 8,
-      localCondition: 'Rain expected this evening 🌧️',
-      isRainExpected: true,
     });
-    setTodayActions(fresh.todayActions);
-    setForecastDays(fresh.forecastDays);
-    setProductionPlans(fresh.productionPlans);
-    setInventory(fresh.inventory);
-    setRescuePlans(fresh.rescuePlans);
-    setSmartMenus(fresh.smartMenus);
-    setExperiments(fresh.experiments);
-    setDecisionReplays(fresh.decisionReplays);
-    setLeftoverHistory(fresh.leftoverHistory);
-    setDamagedStock(fresh.damagedStock);
-    setWeatherInfo(fresh.weatherInfo);
 
-    setActiveTab('today');
-    setIsAddModalOpen(false);
+    const resetSeed = getDefaultDemoData('cafeteria');
+    setKpis(resetSeed.kpis);
+    setTodayActions(resetSeed.todayActions);
+    setForecastDays(resetSeed.forecastDays);
+    setProductionPlans(resetSeed.productionPlans);
+    setInventory(resetSeed.inventory);
+    setRescuePlans(resetSeed.rescuePlans);
+    setSmartMenus(resetSeed.smartMenus);
+    setDecisionReplays(resetSeed.decisionReplays);
+    setDamagedStock(resetSeed.damagedStock);
+    setWeatherInfo(resetSeed.weatherInfo);
+
+    setHasGivenTodayInput(false);
+    setVerificationStatus('awaiting');
+    setActiveTab('operations');
     setIsChangedModalOpen(false);
     setIsDamagedModalOpen(false);
-    setIsDemoTourOpen(false);
+    setIsChatbotOpen(false);
     setMobileMenuOpen(false);
 
-    showToast('Demo session reset. Returned to Language Selection.');
+    showToast('Session reset. Returned to Step 1: Language Selection.');
   };
 
   // Action card handlers
@@ -362,10 +291,10 @@ export default function App() {
     setTodayActions((prev) =>
       prev.map((a) => (a.id === id ? { ...a, status: 'accepted' } : a))
     );
-    showToast('Action accepted! Production plan confirmed.');
+    showToast('Directive confirmed & recorded.');
   };
 
-  const handleRejectTodayAction = (id: string, reason: string = 'Manager decision') => {
+  const handleRejectTodayAction = (id: string, reason: string = 'Chef decision') => {
     const act = todayActions.find((a) => a.id === id);
     setTodayActions((prev) =>
       prev.map((a) => (a.id === id ? { ...a, status: 'rejected' } : a))
@@ -377,15 +306,15 @@ export default function App() {
         date: 'Today',
         item: act.item,
         aiPredicted: act.actionHeading,
-        humanDecided: 'Rejected by Chef',
-        actualOutcome: 'Awaiting end-of-day audit',
+        humanDecided: 'Dismissed by Chef',
+        actualOutcome: 'Awaiting shift audit',
         difference: 'Override',
-        reason: reason,
-        evaluationNote: 'Recorded in adaptive decision memory to refine future baseline.',
+        reason,
+        evaluationNote: 'Logged in accuracy evaluation model.',
       };
       setDecisionReplays((prev) => [newRecord, ...prev]);
     }
-    showToast('Action rejected. Stored in decision replay for future learning.');
+    showToast('Directive dismissed. Added to Decision Replay model.');
   };
 
   const handleChangeTodayAction = (id: string, customVal: string) => {
@@ -402,17 +331,33 @@ export default function App() {
         aiPredicted: act.actionHeading,
         humanDecided: customVal,
         actualOutcome: 'Pending closing audit',
-        difference: 'Customized quantity',
+        difference: 'Custom Target',
         reason: 'Manager adjusted batch based on local knowledge',
         evaluationNote: 'System will compare this custom batch against tonight’s leftovers.',
       };
       setDecisionReplays((prev) => [newRecord, ...prev]);
     }
-    showToast(`Saved custom plan: ${customVal}`);
+    showToast(`Saved custom target: ${customVal}`);
   };
 
-  const handleAddKnowledge = (item: string, knowledge: string) => {
-    showToast(`Added knowledge for ${item}! AI will adapt future recommendations.`);
+  // Production batch handlers
+  const handleAcceptProductionPlan = (id: string) => {
+    setProductionPlans((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, status: 'accepted' } : p))
+    );
+    showToast('Production batch approved.');
+  };
+
+  const handleChangeProductionPlan = (id: string, newKg: number) => {
+    setProductionPlans((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, humanKg: newKg, status: 'changed' } : p))
+    );
+    showToast(`Batch target updated to ${newKg} kg.`);
+  };
+
+  const handleApproveAllProductionPlans = () => {
+    setProductionPlans((prev) => prev.map((p) => ({ ...p, status: 'accepted' })));
+    showToast('All production batches approved for prep.');
   };
 
   // Rescue Plan handler
@@ -430,7 +375,22 @@ export default function App() {
     showToast(`Executed ${tierName}: ${actionLabel}`);
   };
 
-  // Something Changed dynamic recalculation (Story flow)
+  // Chef Specials Handlers
+  const handleApproveMenu = (id: string) => {
+    setSmartMenus((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, status: 'approved' } : m))
+    );
+    showToast('Approved as today’s featured special on menu board!');
+  };
+
+  const handleRejectMenu = (id: string) => {
+    setSmartMenus((prev) =>
+      prev.map((m) => (m.id === id ? { ...m, status: 'rejected' } : m))
+    );
+    showToast('Special recipe dismissed.');
+  };
+
+  // Something Changed dynamic recalculation
   const handleSomethingChanged = (type: string, detail: string) => {
     let customerDelta = 0;
     let reasonText = '';
@@ -452,11 +412,6 @@ export default function App() {
 
     const newExpected = Math.max(80, kpis.customersExpected + customerDelta);
     setKpis((prev) => ({ ...prev, customersExpected: newExpected }));
-
-    // Adjust today's forecast day
-    setForecastDays((prev) =>
-      prev.map((d) => (d.isToday ? { ...d, expectedCustomers: newExpected } : d))
-    );
 
     // Adjust production items
     const ratio = newExpected / (newExpected - customerDelta);
@@ -488,7 +443,7 @@ export default function App() {
       })
     );
 
-    showToast(`Plan recalculated for: ${reasonText}!`);
+    showToast(`Operational plan recalculated for: ${reasonText}!`);
   };
 
   // Damaged stock logging
@@ -518,10 +473,10 @@ export default function App() {
       })
     );
 
-    showToast(`Recorded ${qtyKg} kg damaged ${ingredient}. Inventory stock updated.`);
+    showToast(`Recorded ${qtyKg} kg damaged ${ingredient}. Stock updated.`);
   };
 
-  // If not logged in, render the clean Login / Onboarding flow
+  // If not logged in or in onboarding step, render Login Flow
   if (!session.isLoggedIn || session.step !== 'dashboard') {
     return (
       <LoginFlow
@@ -532,90 +487,65 @@ export default function App() {
     );
   }
 
-  const t = translations[session.language];
   const foodAtRiskCount = inventory.filter((i) => i.riskLevel === 'HIGH' || i.riskLevel === 'CRITICAL').length;
   const pendingRescueCount = rescuePlans.filter((r) => r.status === 'pending').length;
 
   return (
-    <div className="min-h-screen bg-[#FAF7F2] text-[#1F2937] flex flex-col antialiased">
+    <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col antialiased">
       {/* Toast Alert */}
       {toast && (
-        <div className="fixed top-20 right-6 z-50 bg-neutral-900 text-white px-5 py-3 rounded-2xl shadow-2xl text-xs font-bold flex items-center gap-2 border border-neutral-700 animate-in fade-in slide-in-from-top-3">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+        <div className="fixed top-16 right-6 z-50 bg-slate-900 text-white px-4 py-2.5 rounded-lg shadow-xl text-xs font-semibold flex items-center gap-2 border border-slate-700">
+          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
           <span>{toast}</span>
         </div>
       )}
 
-      {/* TOP HEADER */}
-      <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-orange-100 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
-          {/* Brand & Tagline */}
+      {/* MINIMAL TOP BAR (Following Top Bar Contract) */}
+      <header className="sticky top-0 z-40 bg-white border-b border-slate-200">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between gap-4">
+          {/* Zone 1: Brand Wordmark & Location */}
           <div className="flex items-center gap-3 shrink-0">
-            <div
-              className="flex items-center gap-2.5 cursor-pointer"
-              onClick={() => setActiveTab('today')}
+            <button
+              type="button"
+              onClick={() => setActiveTab('operations')}
+              className="flex items-center gap-2 text-left"
             >
-              <div className="w-9 h-9 rounded-xl bg-orange-600 flex items-center justify-center text-white shadow-xs font-bold text-base">
-                🍲
+              <div className="w-7 h-7 rounded-md bg-orange-600 flex items-center justify-center text-white font-bold text-xs shadow-xs">
+                FW
               </div>
-              <div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-lg font-black tracking-tight text-neutral-900 leading-tight">
-                    FOODWISE AI
-                  </span>
-                  <span className="text-[9px] font-black text-orange-800 bg-orange-100 px-1.5 py-0.5 rounded-full border border-orange-200 uppercase">
-                    OFFLINE DEMO
-                  </span>
-                </div>
-                <span className="text-[11px] text-neutral-400 font-semibold hidden sm:inline">
-                  “Predict. Prevent. Rescue.”
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-black tracking-tight text-slate-900">
+                  FOODWISE AI
+                </span>
+                <span className="hidden sm:inline text-slate-300">|</span>
+                <span className="hidden sm:inline text-xs text-slate-500 font-medium truncate max-w-xs">
+                  {session.orgName || 'Green Valley Cafeteria'}
                 </span>
               </div>
-            </div>
+            </button>
           </div>
 
-          {/* Action Zone: + SOMETHING CHANGED?, + ADD / UPDATE, 3-Min Tour, Language */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            {/* 3-Min Demo Tour button for judges */}
-            <button
-              type="button"
-              onClick={() => setIsDemoTourOpen(true)}
-              className="hidden lg:flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-orange-950 bg-orange-100/90 hover:bg-orange-200 border border-orange-300 rounded-xl transition-all"
-            >
-              <Sparkles className="w-3.5 h-3.5 text-orange-700" />
-              <span>{t.header.demoTourBtn}</span>
-            </button>
+          {/* Zone 2: Weather & Verification Telemetry */}
+          <div className="hidden lg:flex items-center gap-2 text-xs text-slate-500">
+            <MapPin className="w-3.5 h-3.5 text-slate-400" />
+            <span>{session.setupInfo?.location || 'Bengaluru, India'}</span>
+            <span className="text-slate-300">·</span>
+            <span className="text-slate-600 font-medium">{weatherInfo.condition}</span>
+          </div>
 
-            {/* SOMETHING CHANGED? Button */}
-            <button
-              type="button"
-              onClick={() => setIsChangedModalOpen(true)}
-              className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-amber-950 bg-amber-100 hover:bg-amber-200 border border-amber-300 rounded-xl transition-all"
-            >
-              <AlertTriangle className="w-3.5 h-3.5 text-amber-700" />
-              <span className="hidden sm:inline">{t.header.somethingChangedBtn}</span>
-              <span className="sm:hidden">Changed?</span>
-            </button>
-
-            {/* + ADD / UPDATE Primary Button */}
-            <button
-              type="button"
-              onClick={() => setIsAddModalOpen(true)}
-              className="flex items-center gap-1.5 px-3.5 sm:px-4 py-2 text-xs font-bold text-white bg-orange-600 hover:bg-orange-700 rounded-xl shadow-md shadow-orange-600/25 transition-all"
-            >
-              <Plus className="w-4 h-4" />
-              <span className="whitespace-nowrap">{t.header.addUpdateBtn}</span>
-            </button>
-
-            {/* Language selector */}
-            <div className="flex items-center bg-neutral-100 rounded-xl p-1 text-xs font-bold">
+          {/* Zone 3: Reset, Language Toggle & User Profile */}
+          <div className="flex items-center gap-2.5 shrink-0">
+            {/* Language Segmented Toggle */}
+            <div className="flex items-center bg-slate-100 rounded-md p-0.5 text-xs font-semibold border border-slate-200/80">
               {(['en', 'hi', 'te'] as Language[]).map((lng) => (
                 <button
                   key={lng}
                   type="button"
                   onClick={() => updateSession({ language: lng })}
-                  className={`px-2 py-1 rounded-lg uppercase ${
-                    session.language === lng ? 'bg-white text-neutral-900 shadow-xs' : 'text-neutral-500'
+                  className={`px-2 py-0.5 rounded text-[11px] uppercase transition-colors ${
+                    session.language === lng
+                      ? 'bg-white text-slate-900 shadow-2xs font-bold'
+                      : 'text-slate-500 hover:text-slate-900'
                   }`}
                 >
                   {lng}
@@ -623,60 +553,48 @@ export default function App() {
               ))}
             </div>
 
-            {/* Reset Demo Button */}
+            {/* User Profile Badge */}
+            <div className="hidden sm:flex items-center gap-2 pl-2 border-l border-slate-200 text-xs">
+              <div className="w-7 h-7 rounded-full bg-slate-200 flex items-center justify-center text-slate-700 font-semibold text-xs">
+                <User className="w-3.5 h-3.5" />
+              </div>
+              <div className="text-left leading-tight">
+                <div className="font-semibold text-slate-800 text-[11px]">Head Chef</div>
+                <div className="text-[10px] text-slate-600 font-medium">Ops Lead</div>
+              </div>
+            </div>
+
+            {/* Full Reset / Reload Button */}
             <button
               type="button"
               onClick={handleResetDemo}
-              title="Reset Demo Session"
-              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-bold text-neutral-600 hover:text-red-600 bg-neutral-100 hover:bg-red-50 border border-neutral-200 hover:border-red-200 rounded-xl transition-all"
+              title="Reset Application (Returns to Step 1)"
+              className="flex items-center gap-1 px-2 py-1.5 text-xs font-semibold text-red-700 hover:text-red-800 bg-red-50 hover:bg-red-100 border border-red-200 rounded-md transition-colors"
             >
-              <RotateCcw className="w-3.5 h-3.5 text-neutral-500 hover:text-red-600" />
-              <span className="hidden xl:inline">Reset</span>
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Reset</span>
             </button>
 
             {/* Mobile Hamburger */}
             <button
               type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 text-neutral-600 hover:text-neutral-900 rounded-xl"
+              className="md:hidden p-1.5 text-slate-600 hover:text-slate-900 rounded"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
         </div>
 
-        {/* Mobile Navigation Dropdown */}
+        {/* Mobile Navigation Drawer */}
         {mobileMenuOpen && (
-          <div className="md:hidden border-t border-neutral-200 bg-white px-4 py-3 space-y-2">
-            <button
-              type="button"
-              onClick={() => {
-                setIsDemoTourOpen(true);
-                setMobileMenuOpen(false);
-              }}
-              className="w-full flex items-center justify-between p-2.5 bg-orange-50 border border-orange-200 rounded-xl text-xs font-bold text-orange-950"
-            >
-              <span className="flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-orange-600" />
-                3-Minute Evaluator Guide
-              </span>
-              <span className="text-orange-700">Start →</span>
-            </button>
-
-            <div className="grid grid-cols-2 gap-1.5 pt-1">
+          <div className="md:hidden border-t border-slate-200 bg-white px-4 py-3 space-y-2">
+            <div className="grid grid-cols-2 gap-1.5">
               {[
-                { id: 'today' as NavigationTab, label: t.nav.today },
-                { id: 'forecast' as NavigationTab, label: t.nav.forecast },
-                { id: 'production' as NavigationTab, label: t.nav.production },
-                { id: 'inventory' as NavigationTab, label: t.nav.inventory },
-                { id: 'wasterisk' as NavigationTab, label: t.nav.wasteRisk },
-                { id: 'rescue' as NavigationTab, label: t.nav.rescuePlan },
-                { id: 'feedback' as NavigationTab, label: t.nav.feedback },
-                { id: 'experiments' as NavigationTab, label: t.nav.experiments },
-                { id: 'menu' as NavigationTab, label: t.nav.menu },
-                { id: 'replay' as NavigationTab, label: t.nav.replay },
-                { id: 'reports' as NavigationTab, label: t.nav.reports },
-                { id: 'settings' as NavigationTab, label: t.nav.settings },
+                { id: 'operations' as NavigationTab, label: 'Operations' },
+                { id: 'inventory' as NavigationTab, label: 'Inventory & FEFO' },
+                { id: 'rescue' as NavigationTab, label: 'Rescue & Specials' },
+                { id: 'reports' as NavigationTab, label: 'Reports & Analytics' },
               ].map((tab) => (
                 <button
                   key={tab.id}
@@ -685,36 +603,23 @@ export default function App() {
                     setActiveTab(tab.id);
                     setMobileMenuOpen(false);
                   }}
-                  className={`p-2 rounded-xl text-xs font-bold text-left ${
-                    activeTab === tab.id ? 'bg-orange-600 text-white' : 'bg-neutral-50 text-neutral-700'
+                  className={`p-2 rounded text-xs font-semibold text-left transition-colors ${
+                    activeTab === tab.id
+                      ? 'bg-orange-600 text-white'
+                      : 'bg-slate-50 text-slate-700 hover:bg-slate-100'
                   }`}
                 >
                   {tab.label}
                 </button>
               ))}
             </div>
-
-            <button
-              type="button"
-              onClick={() => {
-                handleResetDemo();
-                setMobileMenuOpen(false);
-              }}
-              className="w-full mt-2 flex items-center justify-between p-2.5 bg-red-50 border border-red-200 rounded-xl text-xs font-bold text-red-700"
-            >
-              <span className="flex items-center gap-2">
-                <RotateCcw className="w-4 h-4 text-red-600" />
-                Reset Demo Session
-              </span>
-              <span className="text-red-600 text-xs">Reset →</span>
-            </button>
           </div>
         )}
       </header>
 
-      {/* MAIN LAYOUT: LEFT SIDEBAR + RIGHT VIEWPORT */}
+      {/* MAIN LAYOUT: LEFT SIDEBAR + WORKSPACE */}
       <div className="flex-1 flex max-w-7xl w-full mx-auto">
-        {/* Desktop Left Navigation */}
+        {/* Streamlined 4-Tab Desktop Sidebar */}
         <SidebarNav
           session={session}
           activeTab={activeTab}
@@ -723,164 +628,54 @@ export default function App() {
           pendingRescueCount={pendingRescueCount}
         />
 
-        {/* Right Main Content */}
-        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-6 space-y-6 overflow-y-auto">
-          {/* Top Greeting Message (Section 8 in prompt) */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-white p-5 rounded-3xl border border-neutral-200/90 shadow-2xs">
-            <div>
-              <div className="text-[11px] font-extrabold uppercase tracking-wider text-orange-600 mb-0.5">
-                {t.header.goodMorning} 👋
-              </div>
-              <h1 className="text-xl sm:text-2xl font-black text-neutral-900 leading-tight">
-                {session.orgName || 'Green Valley College Cafeteria'}
-              </h1>
-              <p className="text-xs text-neutral-500 font-medium mt-0.5">
-                {t.header.subheading}
-              </p>
-            </div>
-
-            <div className="flex items-center gap-3 text-xs font-semibold text-neutral-600 bg-neutral-50 px-3.5 py-2 rounded-2xl border border-neutral-200 self-start sm:self-auto">
-              <span className="flex items-center gap-1.5 text-neutral-800">
-                <MapPin className="w-3.5 h-3.5 text-orange-600" />
-                {session.setupInfo?.location || 'Bengaluru, India'}
-              </span>
-              <span>·</span>
-              <span className="text-orange-950 font-bold">{weatherInfo.condition}</span>
-            </div>
-          </div>
-
-          {/* TAB 1: TODAY */}
-          {activeTab === 'today' && (
-            <TodaySection
+        {/* Workspace Viewport with pb-24 layout protection for floating copilot */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-7 pb-24 sm:pb-28 space-y-6 overflow-y-auto">
+          {/* TAB 1: OPERATIONS (Predictive Weather + Verification Gate + Batching) */}
+          {(activeTab === 'operations' || activeTab === 'today' || activeTab === 'production') && (
+            <OperationsSection
               language={session.language}
               kpis={kpis}
               actions={todayActions}
               onAcceptAction={handleAcceptTodayAction}
               onRejectAction={handleRejectTodayAction}
               onChangeAction={handleChangeTodayAction}
-              onAddKnowledge={handleAddKnowledge}
-              onJumpToTab={setActiveTab}
               hasGivenTodayInput={hasGivenTodayInput}
               todayUserInput={todayUserInput}
               onSubmitTodayInput={handleSubmitTodayInput}
-              onOpenAddModal={() => setIsAddModalOpen(true)}
+              productionPlans={productionPlans}
+              onAcceptProductionPlan={handleAcceptProductionPlan}
+              onChangeProductionPlan={handleChangeProductionPlan}
+              onApproveAllProductionPlans={handleApproveAllProductionPlans}
+              onOpenSomethingChanged={() => setIsChangedModalOpen(true)}
+              weatherCondition={weatherInfo.condition}
+              verificationStatus={verificationStatus}
+              onVerifyAiPredictions={handleVerifyAiPredictions}
             />
           )}
 
-          {/* TAB 2: FORECAST */}
-          {activeTab === 'forecast' && (
-            <ForecastSection
-              language={session.language}
-              days={forecastDays}
-              weatherInfo={weatherInfo}
-            />
-          )}
-
-          {/* TAB 3: PRODUCTION */}
-          {activeTab === 'production' && (
-            <ProductionSection
-              language={session.language}
-              plans={productionPlans}
-              onAcceptPlan={(id) => {
-                setProductionPlans((prev) =>
-                  prev.map((p) => (p.id === id ? { ...p, status: 'accepted' } : p))
-                );
-                showToast('Kitchen batch approved!');
-              }}
-              onChangePlan={(id, newKg) => {
-                setProductionPlans((prev) =>
-                  prev.map((p) => (p.id === id ? { ...p, humanKg: newKg, status: 'changed' } : p))
-                );
-                showToast(`Production target customized to ${newKg} kg.`);
-              }}
-            />
-          )}
-
-          {/* TAB 4: INVENTORY */}
+          {/* TAB 2: INVENTORY & FEFO */}
           {activeTab === 'inventory' && (
             <InventorySection
               language={session.language}
               inventory={inventory}
               onOpenDamagedModal={() => setIsDamagedModalOpen(true)}
-            />
-          )}
-
-          {/* TAB 5: WASTE RISK */}
-          {activeTab === 'wasterisk' && (
-            <WasteRiskSection
-              language={session.language}
-              inventory={inventory}
               onJumpToRescue={() => setActiveTab('rescue')}
             />
           )}
 
-          {/* TAB 6: RESCUE PLAN (Waste Rescue Mode) */}
+          {/* TAB 3: RESCUE & SPECIALS (Surplus Action Tree + Integrated Chef Specials) */}
           {activeTab === 'rescue' && (
             <RescuePlanSection
               language={session.language}
               rescuePlans={rescuePlans}
+              smartMenus={smartMenus}
               onExecuteRescueAction={handleExecuteRescueAction}
+              onApproveMenu={handleApproveMenu}
+              onRejectMenu={handleRejectMenu}
             />
           )}
 
-          {/* TAB: LEFTOVER FEEDBACK (Closing Audit & Learning Loop) */}
-          {activeTab === 'feedback' && (
-            <LeftoverFeedbackSection
-              language={session.language}
-              history={leftoverHistory}
-              onSaveAndLearn={(newRecord) => {
-                setLeftoverHistory((prev) => [newRecord, ...prev]);
-                showToast('Leftover feedback saved! Next forecast updated.');
-              }}
-            />
-          )}
-
-          {/* TAB 7: EXPERIMENTS (AI Experiment Lab) */}
-          {activeTab === 'experiments' && (
-            <ExperimentsSection
-              language={session.language}
-              experiments={experiments}
-              onApproveExperiment={(id) => {
-                setExperiments((prev) =>
-                  prev.map((e) => (e.id === id ? { ...e, status: 'running' } : e))
-                );
-                showToast('3-Day Controlled Experiment started!');
-              }}
-              onDismissExperiment={(id) => {
-                showToast('Experiment dismissed.');
-              }}
-            />
-          )}
-
-          {/* TAB 8: SMART MENU */}
-          {activeTab === 'menu' && (
-            <SmartMenuSection
-              language={session.language}
-              menus={smartMenus}
-              onApproveMenu={(id) => {
-                setSmartMenus((prev) =>
-                  prev.map((m) => (m.id === id ? { ...m, status: 'approved' } : m))
-                );
-                showToast('Special dish added to daily menu board!');
-              }}
-              onRejectMenu={(id) => {
-                setSmartMenus((prev) =>
-                  prev.map((m) => (m.id === id ? { ...m, status: 'rejected' } : m))
-                );
-                showToast('Dish dismissed.');
-              }}
-            />
-          )}
-
-          {/* TAB 9: DECISION REPLAY */}
-          {activeTab === 'replay' && (
-            <DecisionReplaySection
-              language={session.language}
-              records={decisionReplays}
-            />
-          )}
-
-          {/* TAB 10: REPORTS */}
+          {/* TAB 4: REPORTS & ANALYTICS (Includes Integrated Decision Replay Accuracy) */}
           {activeTab === 'reports' && (
             <ReportsView
               language={session.language}
@@ -891,7 +686,7 @@ export default function App() {
                 forecastAccuracy: 93,
                 productionAccuracy: 91,
                 mostWasted: 'Cold Chapatis',
-                bestImprovement: 'Curd Rice & Rice sizing (+38% accuracy)',
+                bestImprovement: 'Curd Rice & Sizing (+38% precision)',
               }}
               rootCauses={[
                 {
@@ -910,80 +705,34 @@ export default function App() {
                   mainCause: 'Overly ripe crates delivered on Friday afternoon',
                   suggestedCorrection: 'Shift near-expiry tomatoes into lunch rasam',
                 },
+                {
+                  id: 'rc-3',
+                  item: 'Paneer Dairy',
+                  wastedAmount: '0.8 kg',
+                  wasteCost: '₹256',
+                  mainCause: 'Stored near bottom shelf without secondary temperature sensor',
+                  suggestedCorrection: 'Follow FEFO shelf placement guidelines in walk-in cooler',
+                },
               ]}
-            />
-          )}
-
-          {/* TAB 11: SETTINGS */}
-          {activeTab === 'settings' && (
-            <SettingsSection
-              session={session}
-              onUpdateSession={updateSession}
-              onResetDemo={handleResetDemo}
+              decisionReplays={decisionReplays}
             />
           )}
         </main>
       </div>
 
-      {/* FOOTER */}
-      <footer className="border-t border-neutral-200 bg-white py-4 text-xs text-neutral-500">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="font-extrabold text-neutral-800">FOODWISE AI</span>
-            <span>—</span>
-            <span>Predict. Prevent. Rescue.</span>
-          </div>
-
-          <div className="flex items-center gap-4 text-neutral-500">
-            <span>Offline Localhost Demo</span>
-            <span>·</span>
-            <span>Zero Cloud APIs</span>
-            <span>·</span>
-            <button
-              type="button"
-              onClick={handleResetDemo}
-              className="text-red-600 font-bold hover:underline"
-            >
-              Reset Demo
-            </button>
-          </div>
-        </div>
-      </footer>
-
-      {/* MODALS */}
-      {/* 1. Large "+ ADD / UPDATE" Modal */}
-      <AddUpdateModal
+      {/* AI KITCHEN ASSISTANT CHATBOT OVERLAY */}
+      <AiChatbot
         language={session.language}
-        orgType={session.orgType}
-        isOpen={isAddModalOpen}
-        onClose={() => setIsAddModalOpen(false)}
-        onSubmitEntry={(entry) => {
-          showToast(`Information recorded: ${entry.summary}`);
-          if (entry.category === 'customers' || entry.category === 'students' || entry.category === 'residents' || entry.category === 'guests') {
-            const count = parseInt(entry.values.field1, 10);
-            if (count > 0) {
-              handleSubmitTodayInput({
-                ...todayUserInput,
-                expectedCustomers: count,
-              });
-            }
-          } else if (entry.category === 'stock') {
-            const kg = parseFloat(entry.values.field2) || 25;
-            handleSubmitTodayInput({
-              ...todayUserInput,
-              riceStockKg: kg,
-            });
-          } else if (entry.category === 'leftovers') {
-            const kg = parseFloat(entry.values.field2) || 3;
-            handleSubmitTodayInput({
-              ...todayUserInput,
-              riceLeftoverKg: kg,
-            });
-          }
-        }}
+        isOpen={isChatbotOpen}
+        onToggle={() => setIsChatbotOpen(!isChatbotOpen)}
+        todayUserInput={todayUserInput}
+        kpis={kpis}
+        inventory={inventory}
+        productionPlans={productionPlans}
+        weatherCondition={weatherInfo.condition}
       />
 
-      {/* 2. "+ SOMETHING CHANGED?" Modal */}
+      {/* Contextual Modals */}
       <SomethingChangedModal
         language={session.language}
         isOpen={isChangedModalOpen}
@@ -991,20 +740,11 @@ export default function App() {
         onApplyChange={handleSomethingChanged}
       />
 
-      {/* 3. Damaged Stock Modal */}
       <DamagedStockModal
         language={session.language}
         isOpen={isDamagedModalOpen}
         onClose={() => setIsDamagedModalOpen(false)}
         onRecordDamaged={handleRecordDamaged}
-      />
-
-      {/* 4. 3-Minute Demo Tour Modal */}
-      <DemoTourModal
-        isOpen={isDemoTourOpen}
-        onClose={() => setIsDemoTourOpen(false)}
-        onJumpToTab={setActiveTab}
-        onTriggerQuickEvent={(ev) => handleSomethingChanged('other', ev)}
       />
     </div>
   );

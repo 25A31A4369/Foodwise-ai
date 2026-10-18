@@ -22,17 +22,12 @@ export type LifecycleStage =
   | 'rescued_or_discarded';
 
 export type NavigationTab =
-  | 'today'
-  | 'forecast'
-  | 'production'
+  | 'operations'
   | 'inventory'
-  | 'wasterisk'
   | 'rescue'
-  | 'feedback'
-  | 'experiments'
-  | 'menu'
-  | 'replay'
   | 'reports'
+  | 'today'
+  | 'production'
   | 'settings';
 
 export interface UserSession {

@@ -1,21 +1,13 @@
 import React from 'react';
-import { Language, NavigationTab, UserSession } from '../types';
+import { NavigationTab, UserSession } from '../types';
 import { translations } from '../translations';
 import {
-  Home,
-  BarChart2,
-  UtensilsCrossed,
+  LayoutDashboard,
   Package,
-  AlertTriangle,
   LifeBuoy,
-  FlaskConical,
-  ChefHat,
-  RotateCcw,
-  FileText,
-  Settings,
-  ShieldCheck,
+  BarChart3,
   Building2,
-  Sparkles,
+  ShieldCheck,
 } from 'lucide-react';
 
 interface SidebarNavProps {
@@ -35,83 +27,122 @@ export const SidebarNav: React.FC<SidebarNavProps> = ({
 }) => {
   const t = translations[session.language];
 
-  const navItems: { id: NavigationTab; label: string; icon: any; badge?: string }[] = [
-    { id: 'today', label: t.nav.today, icon: Home },
-    { id: 'forecast', label: t.nav.forecast, icon: BarChart2 },
-    { id: 'production', label: t.nav.production, icon: UtensilsCrossed },
-    { id: 'inventory', label: t.nav.inventory, icon: Package },
-    { id: 'wasterisk', label: t.nav.wasteRisk, icon: AlertTriangle, badge: `${foodAtRiskCount} items` },
-    { id: 'rescue', label: t.nav.rescuePlan, icon: LifeBuoy, badge: `${pendingRescueCount} at risk` },
-    { id: 'feedback', label: t.nav.feedback, icon: RotateCcw },
-    { id: 'experiments', label: t.nav.experiments, icon: FlaskConical },
-    { id: 'menu', label: t.nav.menu, icon: ChefHat },
-    { id: 'replay', label: t.nav.replay, icon: RotateCcw },
-    { id: 'reports', label: t.nav.reports, icon: FileText },
-    { id: 'settings', label: t.nav.settings, icon: Settings },
+  const navItems: {
+    id: NavigationTab;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+    badge?: number;
+    badgeVariant?: 'warning' | 'alert';
+  }[] = [
+    {
+      id: 'operations',
+      label: t.nav.operations || 'Operations',
+      icon: LayoutDashboard,
+    },
+    {
+      id: 'inventory',
+      label: t.nav.inventory,
+      icon: Package,
+      badge: foodAtRiskCount > 0 ? foodAtRiskCount : undefined,
+      badgeVariant: 'warning',
+    },
+    {
+      id: 'rescue',
+      label: t.nav.rescueSpecials || t.nav.rescuePlan,
+      icon: LifeBuoy,
+      badge: pendingRescueCount > 0 ? pendingRescueCount : undefined,
+      badgeVariant: 'alert',
+    },
+    {
+      id: 'reports',
+      label: t.nav.reports,
+      icon: BarChart3,
+    },
   ];
 
   return (
-    <aside className="w-64 shrink-0 bg-white border-r border-orange-100/90 flex flex-col justify-between hidden md:flex min-h-[calc(100vh-4rem)]">
-      {/* Upper Navigation Links */}
-      <div className="p-4 space-y-1">
-        <div className="px-3 py-2 mb-2">
-          <div className="text-[10px] uppercase font-bold text-neutral-400 tracking-wider">
-            Decision System
+    <aside className="w-64 shrink-0 bg-white border-r border-slate-200 flex flex-col justify-between hidden md:flex min-h-[calc(100vh-3.5rem)]">
+      {/* Navigation Links */}
+      <div className="p-3 space-y-4">
+        {/* Unit Identity */}
+        <div className="px-3 py-2.5 bg-slate-50 border border-slate-200/80 rounded-lg">
+          <div className="flex items-center gap-2 mb-0.5">
+            <Building2 className="w-3.5 h-3.5 text-slate-500" />
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide">
+              Facility Unit
+            </span>
           </div>
-          <div className="text-xs font-bold text-orange-950 truncate">
+          <div className="text-xs font-bold text-slate-900 truncate">
+            {session.orgName || 'Central Kitchen'}
+          </div>
+          <div className="text-[11px] text-slate-500 truncate mt-0.5">
             {session.setupInfo?.location || 'Bengaluru, India'}
           </div>
         </div>
 
-        <nav className="space-y-1">
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeTab === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => onSelectTab(item.id)}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-bold transition-all ${
-                  isActive
-                    ? 'bg-orange-600 text-white shadow-sm shadow-orange-600/20'
-                    : 'text-neutral-700 hover:bg-orange-50/70 hover:text-orange-950'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-white' : 'text-neutral-500'}`} />
-                  <span>{item.label}</span>
-                </div>
+        {/* Primary Navigation */}
+        <div>
+          <div className="px-3 pb-1.5 text-[10px] font-bold text-slate-600 uppercase tracking-wider">
+            Workspace
+          </div>
+          <nav className="space-y-1">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              // Map 'today' or 'production' alias to 'operations'
+              const isSelected =
+                activeTab === item.id ||
+                (item.id === 'operations' && (activeTab === 'today' || activeTab === 'production'));
 
-                {item.badge && (
-                  <span
-                    className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${
-                      isActive
-                        ? 'bg-white/20 text-white'
-                        : item.id === 'rescue'
-                        ? 'bg-red-100 text-red-700'
-                        : 'bg-amber-100 text-amber-800'
-                    }`}
-                  >
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </nav>
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => onSelectTab(item.id)}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-lg text-xs font-medium transition-colors text-left ${
+                    isSelected
+                      ? 'bg-slate-100 text-slate-900 font-semibold border-l-2 border-orange-600 pl-2.5'
+                      : 'text-slate-700 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <Icon
+                      className={`w-4 h-4 shrink-0 ${
+                        isSelected ? 'text-orange-600' : 'text-slate-500'
+                      }`}
+                    />
+                    <span className="truncate">{item.label}</span>
+                  </div>
+
+                  {item.badge !== undefined && (
+                    <span
+                      className={`text-[10px] font-bold px-1.5 py-0.2 rounded font-mono tabular-nums shrink-0 ${
+                        item.badgeVariant === 'alert'
+                          ? 'bg-red-50 text-red-700 border border-red-200'
+                          : 'bg-amber-50 text-amber-800 border border-amber-200'
+                      }`}
+                    >
+                      {item.badge}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
       </div>
 
-      {/* Bottom Offline Status & Trust Card */}
-      <div className="p-4 border-t border-neutral-100 space-y-2">
-        <div className="p-3 bg-neutral-50 rounded-2xl border border-neutral-200/80 text-[11px] text-neutral-600">
-          <div className="flex items-center gap-1.5 font-bold text-neutral-900 mb-1">
-            <span className="w-2 h-2 rounded-full bg-emerald-500" />
-            <span>Offline Local Engine</span>
+      {/* Enterprise System Indicator */}
+      <div className="p-3 border-t border-slate-200 bg-slate-50/50">
+        <div className="flex items-center gap-2 text-xs text-slate-600">
+          <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+          <div className="min-w-0">
+            <div className="font-semibold text-slate-800 text-[11px] truncate">
+              Local Decision Engine
+            </div>
+            <div className="text-[10px] text-slate-500 truncate">
+              FEFO & Batch Logic Active
+            </div>
           </div>
-          <p className="leading-snug text-neutral-500">
-            No cloud API needed. All forecasts, safety checks & learning run locally.
-          </p>
         </div>
       </div>
     </aside>
